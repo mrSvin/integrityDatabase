@@ -7,7 +7,6 @@ import (
 	"integrity/db1"
 	"integrity/db2"
 	"integrity/dbLog"
-	"log"
 	"time"
 )
 
@@ -81,12 +80,12 @@ func checkWalletHash(walletId string) error {
 
 	walletDb1, err := db1.ReadWallet(walletId)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	walletDb2, err := db2.ReadWallet(walletId)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	hashNode := walletDb1.Hash + walletDb2.Hash

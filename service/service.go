@@ -97,24 +97,56 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 
 func (s *service) Transfer(walletIdSender string, walletIdRecipient string, sendMoney int) error {
 
-	balanceSender, err := s.ReadWalletBalanceForTransfer(walletIdSender)
-	if err != nil {
-		return err
+	senderBalanceCh := make(chan int)
+	recipientBalanceCh := make(chan int)
+
+	// запускаем две горутины для чтения баланса отправителя и получателя
+	go func() {
+		balanceSender, err := s.ReadWalletBalanceForTransfer(walletIdSender)
+		if err != nil {
+			// отправляем ошибку в канал
+			senderBalanceCh <- -1
+			return
+		}
+		senderBalanceCh <- balanceSender
+	}()
+
+	go func() {
+		balanceRecipient, err := s.ReadWalletBalanceForTransfer(walletIdRecipient)
+		if err != nil {
+			// отправляем ошибку в канал
+			recipientBalanceCh <- -1
+			return
+		}
+		recipientBalanceCh <- balanceRecipient
+	}()
+
+	// ожидаем результаты чтения баланса отправителя и получателя
+	balanceSender := <-senderBalanceCh
+	balanceRecipient := <-recipientBalanceCh
+
+	// проверяем наличие ошибок при чтении баланса
+	if balanceSender == -1 || balanceRecipient == -1 {
+		return errors.New("failed to read wallet balance")
 	}
 
-	err = s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
-	if err != nil {
-		return err
-	}
+	// запускаем две горутины для обновления баланса отправителя и получателя
+	errCh := make(chan error)
+	go func() {
+		err := s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
+		errCh <- err
+	}()
 
-	balanceRecipient, err := s.ReadWalletBalanceForTransfer(walletIdRecipient)
-	if err != nil {
-		return err
-	}
+	go func() {
+		err := s.UpdateBalance(walletIdRecipient, balanceRecipient+sendMoney)
+		errCh <- err
+	}()
 
-	err = s.UpdateBalance(walletIdRecipient, balanceRecipient+sendMoney)
-	if err != nil {
-		return err
+	// ожидаем результаты обновления баланса отправителя и получателя
+	for i := 0; i < 2; i++ {
+		if err := <-errCh; err != nil {
+			return err
+		}
 	}
 
 	return nil

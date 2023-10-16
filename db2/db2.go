@@ -17,12 +17,16 @@ var uriMongo = "mongodb://localhost:27017"
 var dbName = "walletDb"
 var dbCollection = "wallet_node_2"
 
+type Database struct {
+	Collection *mongo.Collection
+}
+
 type Wallet struct {
 	Id   string
 	Hash string
 }
 
-func CreateWallet(walletId string, hash string) error {
+func (db *Database) CreateWallet(walletId string, hash string) error {
 	clientOptions := options.Client().ApplyURI(uriMongo)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -51,7 +55,7 @@ func CreateWallet(walletId string, hash string) error {
 	return nil
 }
 
-func ReadWallet(walletId string) (*Wallet, error) {
+func (db *Database) ReadWallet(walletId string) (*Wallet, error) {
 	clientOptions := options.Client().ApplyURI(uriMongo)
 
 	// установка соединения с базой данных
@@ -79,7 +83,7 @@ func ReadWallet(walletId string) (*Wallet, error) {
 	return &wallet, nil
 }
 
-func UpdateHashWallet(walletId string, hash string) error {
+func (db *Database) UpdateHashWallet(walletId string, hash string) error {
 	clientOptions := options.Client().ApplyURI(uriMongo)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -98,4 +102,20 @@ func UpdateHashWallet(walletId string, hash string) error {
 
 	log.Println(time.Now(), " ", dbCollection, " wallet ", walletId, " updated")
 	return nil
+}
+
+func NewConnect() *mongo.Collection {
+	clientOptions := options.Client().ApplyURI(uriMongo)
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return client.Database(dbName).Collection(dbCollection)
+}
+
+func NewDatabase(collection *mongo.Collection) *Database {
+	return &Database{
+		Collection: collection,
+	}
 }

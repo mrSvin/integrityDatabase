@@ -12,6 +12,10 @@ var uriMongo = "mongodb://localhost:27017"
 var dbName = "walletDb"
 var dbCollection = "wallet_logs"
 
+type Database struct {
+	Collection *mongo.Collection
+}
+
 type logWallet struct {
 	Id            string
 	TypeOperation string
@@ -21,7 +25,7 @@ type logWallet struct {
 	Hash          string
 }
 
-func CreateLog(walletId string, oldBalance int, newBalance int, timeOperation int64, hash string, typeOperation string) error {
+func (db *Database) CreateLog(walletId string, oldBalance int, newBalance int, timeOperation int64, hash string, typeOperation string) error {
 	clientOptions := options.Client().ApplyURI(uriMongo)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -45,4 +49,21 @@ func CreateLog(walletId string, oldBalance int, newBalance int, timeOperation in
 	}
 
 	log.Println(time.Now(), " ", dbCollection, " wallet ", walletId, " created")
+	return nil
+}
+
+func NewConnect() *mongo.Collection {
+	clientOptions := options.Client().ApplyURI(uriMongo)
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return client.Database(dbName).Collection(dbCollection)
+}
+
+func NewDatabase(collection *mongo.Collection) *Database {
+	return &Database{
+		Collection: collection,
+	}
 }

@@ -10,7 +10,21 @@ import (
 	"time"
 )
 
-func CreateWallet(walletId string) error {
+type service struct {
+	db1   *db1.Database
+	db2   *db2.Database
+	dbLog *dbLog.Database
+}
+
+func NewService(db1 *db1.Database, db2 *db2.Database, dbLog *dbLog.Database) *service {
+	return &service{
+		db1:   db1,
+		db2:   db2,
+		dbLog: dbLog,
+	}
+}
+
+func (s *service) CreateWallet(walletId string) error {
 
 	time := time.Now().UnixNano()
 	hashString := getHash(walletId, 0, time)
@@ -18,57 +32,57 @@ func CreateWallet(walletId string) error {
 	hashBegin := hashString[:hashLength]
 	hashEnd := hashString[hashLength:]
 
-	err := db1.CreateWallet(walletId, time, hashBegin)
+	err := s.db1.CreateWallet(walletId, time, hashBegin)
 	if err != nil {
 		return err
 	}
-	err = db2.CreateWallet(walletId, hashEnd)
+	err = s.db2.CreateWallet(walletId, hashEnd)
 	if err != nil {
 		return err
 	}
-	err = dbLog.CreateLog(walletId, 0, 0, time, hashBegin, "create")
+	err = s.dbLog.CreateLog(walletId, 0, 0, time, hashBegin, "create")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func ReadWalletBalance(walletId string) (int, error) {
-	err := checkWalletHash(walletId)
+func (s *service) ReadWalletBalance(walletId string) (int, error) {
+	err := s.checkWalletHash(walletId)
 	if err != nil {
 		return 0, err
 	}
-	data, err := db1.ReadWallet(walletId)
+	data, err := s.db1.ReadWallet(walletId)
 	return data.Balance, err
 }
 
 // Для эмиссии и уничтожения валюты
-func UpdateBalance(walletId string, newBalance int) error {
-	err := checkWalletHash(walletId)
+func (s *service) UpdateBalance(walletId string, newBalance int) error {
+	err := s.checkWalletHash(walletId)
 	if err != nil {
 		return err
 	}
 
 	time := time.Now().UnixNano()
-	hashString := getHash(walletId, 0, time)
+	hashString := getHash(walletId, newBalance, time)
 	hashLength := len(hashString) / 2
 	hashBegin := hashString[:hashLength]
 	hashEnd := hashString[hashLength:]
 
-	walletInfo, err := db1.ReadWallet(walletId)
+	walletInfo, err := s.db1.ReadWallet(walletId)
 	if err != nil {
 		return err
 	}
 
-	err = db1.UpdateBalanceWallet(walletId, newBalance, time, hashBegin)
+	err = s.db1.UpdateBalanceWallet(walletId, newBalance, time, hashBegin)
 	if err != nil {
 		return err
 	}
-	err = db2.UpdateHashWallet(walletId, hashEnd)
+	err = s.db2.UpdateHashWallet(walletId, hashEnd)
 	if err != nil {
 		return err
 	}
-	err = dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, time, hashBegin, "update")
+	err = s.dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, time, hashBegin, "update")
 	if err != nil {
 		return err
 	}
@@ -76,14 +90,14 @@ func UpdateBalance(walletId string, newBalance int) error {
 	return nil
 }
 
-func checkWalletHash(walletId string) error {
+func (s *service) checkWalletHash(walletId string) error {
 
-	walletDb1, err := db1.ReadWallet(walletId)
+	walletDb1, err := s.db1.ReadWallet(walletId)
 	if err != nil {
 		return err
 	}
 
-	walletDb2, err := db2.ReadWallet(walletId)
+	walletDb2, err := s.db2.ReadWallet(walletId)
 	if err != nil {
 		return err
 	}
@@ -92,7 +106,7 @@ func checkWalletHash(walletId string) error {
 	hashDb := getHash(walletDb1.Id, walletDb1.Balance, walletDb1.TimeOperation)
 
 	if hashNode != hashDb {
-		return errors.New("invalid hash " + walletId)
+		return errors.New("invalid hash in wallet id: " + walletId)
 	}
 
 	return nil

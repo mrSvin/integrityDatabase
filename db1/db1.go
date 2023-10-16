@@ -14,6 +14,10 @@ var uriMongo = "mongodb://localhost:27017"
 var dbName = "walletDb"
 var dbCollection = "wallet_node_1"
 
+type Database struct {
+	Collection *mongo.Collection
+}
+
 type Wallet struct {
 	Id            string
 	Balance       int
@@ -21,14 +25,7 @@ type Wallet struct {
 	Hash          string
 }
 
-func CreateWallet(walletId string, timeCreate int64, hash string) error {
-	clientOptions := options.Client().ApplyURI(uriMongo)
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	collection := client.Database(dbName).Collection(dbCollection)
+func (db *Database) CreateWallet(walletId string, timeCreate int64, hash string) error {
 
 	wallet := Wallet{
 		Id:            walletId,
@@ -37,13 +34,13 @@ func CreateWallet(walletId string, timeCreate int64, hash string) error {
 		Hash:          hash,
 	}
 
-	err = collection.FindOne(context.Background(), bson.M{"id": walletId}).Decode(&wallet)
+	err := db.Collection.FindOne(context.Background(), bson.M{"id": walletId}).Decode(&wallet)
 	if err == nil {
 		log.Println(time.Now(), " ", dbCollection, " wallet ", walletId, " already exists")
 		return errors.New("db1 already exists wallet " + walletId)
 	}
 
-	_, err = collection.InsertOne(context.Background(), wallet)
+	_, err = db.Collection.InsertOne(context.Background(), wallet)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,26 +49,10 @@ func CreateWallet(walletId string, timeCreate int64, hash string) error {
 	return nil
 }
 
-func ReadWallet(walletId string) (*Wallet, error) {
-	clientOptions := options.Client().ApplyURI(uriMongo)
-
-	// установка соединения с базой данных
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// проверка соединения с базой данных
-	err = client.Ping(context.Background(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// выбор коллекции для чтения данных
-	collection := client.Database(dbName).Collection(dbCollection)
+func (db *Database) ReadWallet(walletId string) (*Wallet, error) {
 
 	var wallet Wallet
-	err = collection.FindOne(context.Background(), bson.M{"id": walletId}).Decode(&wallet)
+	err := db.Collection.FindOne(context.Background(), bson.M{"id": walletId}).Decode(&wallet)
 	if err != nil {
 		return nil, err
 	}
@@ -79,23 +60,32 @@ func ReadWallet(walletId string) (*Wallet, error) {
 	return &wallet, nil
 }
 
-func UpdateBalanceWallet(walletId string, newBalance int, timeUpdate int64, hash string) error {
-	clientOptions := options.Client().ApplyURI(uriMongo)
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	collection := client.Database(dbName).Collection(dbCollection)
+func (db *Database) UpdateBalanceWallet(walletId string, newBalance int, timeUpdate int64, hash string) error {
 
 	filter := bson.M{"id": walletId}
 	update := bson.M{"$set": bson.M{"balance": newBalance, "timeOperation": timeUpdate, "hash": hash}}
 
-	_, err = collection.UpdateOne(context.Background(), filter, update)
+	_, err := db.Collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return err
 	}
 
 	log.Println(time.Now(), " ", dbCollection, " wallet ", walletId, " updated")
 	return nil
+}
+
+func NewConnect() *mongo.Collection {
+	clientOptions := options.Client().ApplyURI(uriMongo)
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return client.Database(dbName).Collection(dbCollection)
+}
+
+func NewDatabase(collection *mongo.Collection) *Database {
+	return &Database{
+		Collection: collection,
+	}
 }

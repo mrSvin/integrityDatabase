@@ -56,15 +56,15 @@ func (s *service) ReadWalletBalance(walletId string) (int, error) {
 	return data.Balance, err
 }
 
-// Для эмиссии и уничтожения валюты
+// Для эмиссии, уничтожения валюты, трансфера
 func (s *service) UpdateBalance(walletId string, newBalance int) error {
 	err := s.checkWalletHash(walletId)
 	if err != nil {
 		return err
 	}
 
-	time := time.Now().UnixNano()
-	hashString := getHash(walletId, newBalance, time)
+	timeUpdate := time.Now().UnixNano()
+	hashString := getHash(walletId, newBalance, timeUpdate)
 	hashLength := len(hashString) / 2
 	hashBegin := hashString[:hashLength]
 	hashEnd := hashString[hashLength:]
@@ -74,7 +74,7 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 		return err
 	}
 
-	err = s.db1.UpdateBalanceWallet(walletId, newBalance, time, hashBegin)
+	err = s.db1.UpdateBalanceWallet(walletId, newBalance, timeUpdate, hashBegin)
 	if err != nil {
 		return err
 	}
@@ -82,10 +82,28 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 	if err != nil {
 		return err
 	}
-	err = s.dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, time, hashBegin, "update")
+	err = s.dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, timeUpdate, hashBegin, "update")
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (s *service) Transfer(walletIdSender string, walletIdRecipient string, sendMoney int) error {
+
+	balanceSender, err := s.ReadWalletBalance(walletIdSender)
+	if err != nil {
+		return err
+	}
+	s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
+
+	balanceRecipient, err := s.ReadWalletBalance(walletIdRecipient)
+	if err != nil {
+		return err
+	}
+
+	s.UpdateBalance(walletIdRecipient, balanceRecipient+sendMoney)
 
 	return nil
 }
@@ -96,7 +114,6 @@ func (s *service) checkWalletHash(walletId string) error {
 	if err != nil {
 		return err
 	}
-
 	walletDb2, err := s.db2.ReadWallet(walletId)
 	if err != nil {
 		return err

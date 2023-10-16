@@ -61,7 +61,6 @@ func (db *Database) ReadWallet(walletId string) (*Wallet, error) {
 }
 
 func (db *Database) UpdateBalanceWallet(walletId string, newBalance int, timeUpdate int64, hash string) error {
-
 	filter := bson.M{"id": walletId}
 	update := bson.M{"$set": bson.M{"balance": newBalance, "timeOperation": timeUpdate, "hash": hash}}
 
@@ -69,7 +68,6 @@ func (db *Database) UpdateBalanceWallet(walletId string, newBalance int, timeUpd
 	if err != nil {
 		return err
 	}
-
 	log.Println(time.Now(), " ", dbCollection, " wallet ", walletId, " updated")
 	return nil
 }

@@ -1,4 +1,4 @@
-package main
+package integration_test
 
 import (
 	"fmt"
@@ -7,10 +7,11 @@ import (
 	"integrity/dbLog"
 	"integrity/service"
 	"log"
+	"testing"
 	"time"
 )
 
-func main() {
+func Test_Service(t *testing.T) {
 	db1 := db1.NewDatabase(db1.NewConnect())
 	db2 := db2.NewDatabase(db2.NewConnect())
 	dbLog := dbLog.NewDatabase(dbLog.NewConnect())

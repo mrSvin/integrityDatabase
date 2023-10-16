@@ -26,13 +26,6 @@ type logWallet struct {
 }
 
 func (db *Database) CreateLog(walletId string, oldBalance int, newBalance int, timeOperation int64, hash string, typeOperation string) error {
-	clientOptions := options.Client().ApplyURI(uriMongo)
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		return err
-	}
-
-	collection := client.Database(dbName).Collection(dbCollection)
 
 	logWallet := logWallet{
 		Id:            walletId,
@@ -43,7 +36,7 @@ func (db *Database) CreateLog(walletId string, oldBalance int, newBalance int, t
 		Hash:          hash,
 	}
 
-	_, err = collection.InsertOne(context.Background(), logWallet)
+	_, err := db.Collection.InsertOne(context.Background(), logWallet)
 	if err != nil {
 		return err
 	}

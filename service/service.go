@@ -56,7 +56,12 @@ func (s *service) ReadWalletBalance(walletId string) (int, error) {
 	return data.Balance, err
 }
 
-// Для эмиссии, уничтожения валюты, трансфера
+func (s *service) ReadWalletBalanceForTransfer(walletId string) (int, error) {
+	data, err := s.db1.ReadWallet(walletId)
+	return data.Balance, err
+}
+
+// Для эмиссии, уничтожения валюты
 func (s *service) UpdateBalance(walletId string, newBalance int) error {
 	err := s.checkWalletHash(walletId)
 	if err != nil {
@@ -92,13 +97,13 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 
 func (s *service) Transfer(walletIdSender string, walletIdRecipient string, sendMoney int) error {
 
-	balanceSender, err := s.ReadWalletBalance(walletIdSender)
+	balanceSender, err := s.ReadWalletBalanceForTransfer(walletIdSender)
 	if err != nil {
 		return err
 	}
 	s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
 
-	balanceRecipient, err := s.ReadWalletBalance(walletIdRecipient)
+	balanceRecipient, err := s.ReadWalletBalanceForTransfer(walletIdRecipient)
 	if err != nil {
 		return err
 	}

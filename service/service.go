@@ -101,14 +101,21 @@ func (s *service) Transfer(walletIdSender string, walletIdRecipient string, send
 	if err != nil {
 		return err
 	}
-	s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
+
+	err = s.UpdateBalance(walletIdSender, balanceSender-sendMoney)
+	if err != nil {
+		return err
+	}
 
 	balanceRecipient, err := s.ReadWalletBalanceForTransfer(walletIdRecipient)
 	if err != nil {
 		return err
 	}
 
-	s.UpdateBalance(walletIdRecipient, balanceRecipient+sendMoney)
+	err = s.UpdateBalance(walletIdRecipient, balanceRecipient+sendMoney)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

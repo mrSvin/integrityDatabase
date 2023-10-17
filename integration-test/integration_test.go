@@ -10,6 +10,7 @@ import (
 	"integrity/dbLog"
 	"integrity/service"
 	"log"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -57,7 +58,7 @@ func Test_Service(t *testing.T) {
 		srv.Transfer("2", "1", 1)
 	}
 	timeEnd := time.Now().UnixMilli()
-	fmt.Println(timeEnd - timeBegin)
+	fmt.Println("benchmark: ", timeEnd-timeBegin)
 
 	balance, err = srv.ReadWalletBalance("2")
 	if err != nil {
@@ -71,6 +72,38 @@ func Test_Service(t *testing.T) {
 	}
 	fmt.Println("balance wallet id1: ", balance)
 
+}
+
+func Test_ServiceBatch(t *testing.T) {
+	clearDb()
+
+	db1 := db1.NewDatabase(db1.NewConnect())
+	db2 := db2.NewDatabase(db2.NewConnect())
+	dbLog := dbLog.NewDatabase(dbLog.NewConnect())
+	srv := service.NewService(db1, db2, dbLog)
+
+	for i := 1; i <= 20; i++ {
+		err := srv.CreateWallet(strconv.Itoa(i))
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	for i := 1; i <= 20; i++ {
+		err := srv.UpdateBalance(strconv.Itoa(i), 3000)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	walletSender := []string{"1", "2", "2", "2", "4", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "6"}
+	walletRecipient := []string{"2", "1", "3", "4", "2", "9", "20", "19", "18", "17", "16", "15", "14", "13", "12", "10", "9", "8", "1", "20"}
+	amount := []int{80, 30, 40, 50, 60, 70, 80, 90, 80, 70, 60, 50, 40, 30, 20, 10, 40, 70, 90, 80}
+
+	timeBegin := time.Now().UnixMilli()
+	srv.TransferBatch(walletSender, walletRecipient, amount)
+	timeEnd := time.Now().UnixMilli()
+	fmt.Println("benchmark: ", timeEnd-timeBegin)
 }
 
 func clearDb() {

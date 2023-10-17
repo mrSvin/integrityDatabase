@@ -7,6 +7,7 @@ import (
 	"integrity/db1"
 	"integrity/db2"
 	"integrity/dbLog"
+	"integrity/internal"
 	"time"
 )
 
@@ -150,6 +151,19 @@ func (s *service) Transfer(walletIdSender string, walletIdRecipient string, send
 	}
 
 	return nil
+}
+
+func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientArray []string, amount []int) {
+	newWalletSender, newWalletRecipient, newAmount := internal.CalculateMirrorTransfer(walletIdSenderArray, walletIdRecipientArray, amount)
+
+	fmt.Println(newWalletSender)
+	fmt.Println(newWalletRecipient)
+	fmt.Println(newAmount)
+
+	//TODO add async run
+	for i := 0; i < len(newWalletSender); i++ {
+		s.Transfer(newWalletSender[i], newWalletRecipient[i], newAmount[i])
+	}
 }
 
 func (s *service) checkWalletHash(walletId string) error {

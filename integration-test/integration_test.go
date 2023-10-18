@@ -94,7 +94,7 @@ func Test_ServiceBatch(t *testing.T) {
 	}
 
 	for i := 1; i <= countWallets; i++ {
-		err := srv.UpdateBalance(strconv.Itoa(i), 3000)
+		err := srv.UpdateBalance(strconv.Itoa(i), 5000)
 		if err != nil {
 			log.Println(err)
 		}
@@ -103,10 +103,13 @@ func Test_ServiceBatch(t *testing.T) {
 	walletSender, walletRecipient, amount := generateRandomTransfer()
 
 	timeBegin := time.Now().UnixMilli()
+	//кидаем 3 пула с группой трансферов
+	srv.TransferBatch(walletSender, walletRecipient, amount)
+	srv.TransferBatch(walletSender, walletRecipient, amount)
 	srv.TransferBatch(walletSender, walletRecipient, amount)
 	timeEnd := time.Now().UnixMilli()
 	countTime := 1000 / float32(timeEnd-timeBegin)
-	benchmark := countTime * float32(countWallets)
+	benchmark := countTime * float32(countWallets*3)
 	fmt.Println("benchmark: ", benchmark, " tps")
 }
 

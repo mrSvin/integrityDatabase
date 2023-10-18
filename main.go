@@ -2,17 +2,35 @@ package main
 
 import (
 	"fmt"
-	"integrity/internal"
 )
 
 func main() {
 
-	in1 := []string{"1", "2", "2", "2", "4", "7"}
-	in2 := []string{"2", "1", "3", "4", "2", "8"}
-	in3 := []int{80, 30, 40, 50, 60, 70}
+	walletIdSenderArray := []string{"wallet1", "wallet2", "wallet3"}
+	walletIdRecipientArray := []string{"wallet4", "wallet1", "wallet6"}
+	amount := []int{100, 200, 300}
 
-	newWalletSender, newWalletRecipient, newAmount := internal.CalculateMirrorTransfer(in1, in2, in3)
-	fmt.Println(newWalletSender)
-	fmt.Println(newWalletRecipient)
-	fmt.Println(newAmount)
+	balances := calculateUpdateWalletBalances(walletIdSenderArray, walletIdRecipientArray, amount)
+
+	for walletId, updateBalance := range balances {
+		fmt.Println(walletId, updateBalance)
+	}
+}
+
+func calculateUpdateWalletBalances(walletIdSenderArray []string, walletIdRecipientArray []string, amount []int) map[string]int {
+	balances := make(map[string]int)
+	for i := 0; i < len(walletIdSenderArray); i++ {
+		sender := walletIdSenderArray[i]
+		recipient := walletIdRecipientArray[i]
+		transferAmount := amount[i]
+		balances[sender] -= transferAmount
+		balances[recipient] += transferAmount
+	}
+	result := make(map[string]int)
+	for walletId, balance := range balances {
+		if balance != 0 {
+			result[walletId] = balance
+		}
+	}
+	return result
 }

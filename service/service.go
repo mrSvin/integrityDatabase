@@ -7,7 +7,8 @@ import (
 	"integrity/db1"
 	"integrity/db2"
 	"integrity/dbLog"
-	"integrity/internal"
+	"log"
+	"sync"
 	"time"
 )
 
@@ -96,6 +97,36 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 	return nil
 }
 
+// Для пакетного трансфера, в нем контроль целостности проверяется до апдейта
+func (s *service) UpdateBalanceForBatch(walletId string, newBalance int) error {
+
+	timeUpdate := time.Now().UnixNano()
+	hashString := getHash(walletId, newBalance, timeUpdate)
+	hashLength := len(hashString) / 2
+	hashBegin := hashString[:hashLength]
+	hashEnd := hashString[hashLength:]
+
+	walletInfo, err := s.db1.ReadWallet(walletId)
+	if err != nil {
+		return err
+	}
+
+	err = s.db1.UpdateBalanceWallet(walletId, newBalance, timeUpdate, hashBegin)
+	if err != nil {
+		return err
+	}
+	err = s.db2.UpdateHashWallet(walletId, hashEnd)
+	if err != nil {
+		return err
+	}
+	err = s.dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, timeUpdate, hashBegin, "update")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *service) Transfer(walletIdSender string, walletIdRecipient string, sendMoney int) error {
 
 	senderBalanceCh := make(chan int)
@@ -153,17 +184,50 @@ func (s *service) Transfer(walletIdSender string, walletIdRecipient string, send
 	return nil
 }
 
-func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientArray []string, amount []int) {
-	newWalletSender, newWalletRecipient, newAmount := internal.CalculateMirrorTransfer(walletIdSenderArray, walletIdRecipientArray, amount)
+func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientArray []string, amount []int) error {
 
-	fmt.Println(newWalletSender)
-	fmt.Println(newWalletRecipient)
-	fmt.Println(newAmount)
+	mapUpdateBalance := calculateUpdateWalletBalances(walletIdSenderArray, walletIdRecipientArray, amount)
 
-	//TODO add async run
-	for i := 0; i < len(newWalletSender); i++ {
-		s.Transfer(newWalletSender[i], newWalletRecipient[i], newAmount[i])
+	var walletsId []string
+	var updateBalance []int
+	var currentsBalance []int
+	for walletId, changeBalance := range mapUpdateBalance {
+		walletsId = append(walletsId, walletId)
+		updateBalance = append(updateBalance, changeBalance)
 	}
+
+	//читаем асинхронно балансы, заодно проверяем контроль целостности затрагиваемых кошельков
+	var wg sync.WaitGroup // создаем WaitGroup
+	for i := 0; i < len(walletsId); i++ {
+		wg.Add(1)        // добавляем горутину в WaitGroup
+		go func(i int) { // запускаем горутину
+			defer wg.Done() // отмечаем горутину как завершенную при выходе из нее
+			currentBalance, err := s.ReadWalletBalance(walletsId[i])
+			if err != nil {
+				log.Println("Ошибка чтения wallet id ", walletsId[i], ", error: ", err)
+				return
+			}
+			currentsBalance = append(currentsBalance, currentBalance)
+		}(i)
+	}
+	wg.Wait() // ждем завершения всех горутин
+
+	//запускаем апдейты кошельков
+	var wgUpdate sync.WaitGroup // создаем WaitGroup
+	for i := 0; i < len(walletsId); i++ {
+		wgUpdate.Add(1)  // добавляем горутину в WaitGroup
+		go func(i int) { // запускаем горутину
+			defer wgUpdate.Done() // отмечаем горутину как завершенную при выходе из нее
+			err := s.UpdateBalanceForBatch(walletsId[i], currentsBalance[i]+updateBalance[i])
+			if err != nil {
+				log.Println("Ошибка обновления баланса wallet id ", walletsId[i], ", error: ", err)
+				return
+			}
+		}(i)
+		wgUpdate.Wait() // ждем завершения всех горутин
+	}
+
+	return nil
 }
 
 func (s *service) checkWalletHash(walletId string) error {
@@ -191,4 +255,22 @@ func getHash(walletId string, balance int, time int64) string {
 	dataHash := fmt.Sprintf("%s %v %v", walletId, balance, time)
 	hash := sha256.Sum256([]byte(dataHash))
 	return fmt.Sprintf("%x\n", hash)
+}
+
+func calculateUpdateWalletBalances(walletIdSenderArray []string, walletIdRecipientArray []string, amount []int) map[string]int {
+	balances := make(map[string]int)
+	for i := 0; i < len(walletIdSenderArray); i++ {
+		sender := walletIdSenderArray[i]
+		recipient := walletIdRecipientArray[i]
+		transferAmount := amount[i]
+		balances[sender] -= transferAmount
+		balances[recipient] += transferAmount
+	}
+	result := make(map[string]int)
+	for walletId, balance := range balances {
+		if balance != 0 {
+			result[walletId] = balance
+		}
+	}
+	return result
 }

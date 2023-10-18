@@ -10,10 +10,13 @@ import (
 	"integrity/dbLog"
 	"integrity/service"
 	"log"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 )
+
+var countWallets = 100 //for batch test
 
 func Test_Service(t *testing.T) {
 
@@ -82,23 +85,21 @@ func Test_ServiceBatch(t *testing.T) {
 	dbLog := dbLog.NewDatabase(dbLog.NewConnect())
 	srv := service.NewService(db1, db2, dbLog)
 
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= countWallets; i++ {
 		err := srv.CreateWallet(strconv.Itoa(i))
 		if err != nil {
 			log.Println(err)
 		}
 	}
 
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= countWallets; i++ {
 		err := srv.UpdateBalance(strconv.Itoa(i), 3000)
 		if err != nil {
 			log.Println(err)
 		}
 	}
 
-	walletSender := []string{"1", "2", "2", "2", "4", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "6"}
-	walletRecipient := []string{"2", "1", "3", "4", "2", "9", "20", "19", "18", "17", "16", "15", "14", "13", "12", "10", "9", "8", "1", "20"}
-	amount := []int{80, 30, 40, 50, 60, 70, 80, 90, 80, 70, 60, 50, 40, 30, 20, 10, 40, 70, 90, 80}
+	walletSender, walletRecipient, amount := generateRandomTransfer()
 
 	timeBegin := time.Now().UnixMilli()
 	srv.TransferBatch(walletSender, walletRecipient, amount)
@@ -127,4 +128,18 @@ func clearDb() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func generateRandomTransfer() ([]string, []string, []int) {
+	var walletSender []string
+	var walletRecipient []string
+	var amount []int
+
+	for i := 0; i < 100; i++ {
+		walletSender = append(walletSender, strconv.Itoa(rand.Intn(countWallets)+1))
+		walletRecipient = append(walletRecipient, strconv.Itoa(rand.Intn(countWallets)+1))
+		amount = append(amount, rand.Intn(40)+10)
+	}
+
+	return walletSender, walletRecipient, amount
 }

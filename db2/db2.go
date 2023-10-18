@@ -74,6 +74,23 @@ func (db *Database) UpdateHashWallet(walletId string, hash string) error {
 	return nil
 }
 
+func (db *Database) UpdateBatchHashWallet(walletId []string, hash []string) error {
+
+	var bulkOps []mongo.WriteModel
+
+	for i := 0; i < len(walletId); i++ {
+		filter := bson.M{"id": walletId[i]}
+		update := bson.M{"$set": bson.M{"hash": hash[i]}}
+		updateOne := mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update)
+		bulkOps = append(bulkOps, updateOne)
+	}
+	_, err := db.Collection.BulkWrite(context.Background(), bulkOps)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewConnect() *mongo.Collection {
 	clientOptions := options.Client().ApplyURI(uriMongo)
 	client, err := mongo.Connect(context.Background(), clientOptions)

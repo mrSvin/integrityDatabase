@@ -98,30 +98,45 @@ func (s *service) UpdateBalance(walletId string, newBalance int) error {
 }
 
 // Для пакетного трансфера, в нем контроль целостности проверяется до апдейта
-func (s *service) UpdateBalanceForBatch(walletId string, newBalance int) error {
+func (s *service) UpdateBalanceForBatch(walletsId []string, changeBalance []int) error {
+
+	var hashBeginArray []string
+	var hashEndArray []string
+	var newBalances []int
+
+	currentsBalances, err := s.db1.ReadBatchWallets(walletsId)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(walletsId); i++ {
+		newBalances = append(newBalances, currentsBalances[i].Balance+changeBalance[i])
+	}
 
 	timeUpdate := time.Now().UnixNano()
-	hashString := getHash(walletId, newBalance, timeUpdate)
-	hashLength := len(hashString) / 2
-	hashBegin := hashString[:hashLength]
-	hashEnd := hashString[hashLength:]
-
-	walletInfo, err := s.db1.ReadWallet(walletId)
-	if err != nil {
-		return err
+	for i := 0; i < len(walletsId); i++ {
+		hashString := getHash(walletsId[i], newBalances[i], timeUpdate)
+		hashLength := len(hashString) / 2
+		hashBeginArray = append(hashBeginArray, hashString[:hashLength])
+		hashEndArray = append(hashEndArray, hashString[hashLength:])
 	}
 
-	err = s.db1.UpdateBalanceWallet(walletId, newBalance, timeUpdate, hashBegin)
+	err = s.db1.UpdateBatchBalanceWallet(walletsId, newBalances, timeUpdate, hashBeginArray)
 	if err != nil {
 		return err
 	}
-	err = s.db2.UpdateHashWallet(walletId, hashEnd)
+
+	err = s.db2.UpdateBatchHashWallet(walletsId, hashEndArray)
 	if err != nil {
 		return err
 	}
-	err = s.dbLog.CreateLog(walletId, walletInfo.Balance, newBalance, timeUpdate, hashBegin, "update")
-	if err != nil {
-		return err
+
+	for i := 0; i < len(walletsId); i++ {
+		err = s.dbLog.CreateLog(walletsId[i], currentsBalances[i].Balance, newBalances[i], timeUpdate, hashBeginArray[i], "update")
+		if err != nil {
+			log.Println("Ошибка добавления лога в wallet ", walletsId[i], ", error: ", err)
+			return err
+		}
 	}
 
 	return nil
@@ -212,25 +227,10 @@ func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientA
 	}
 	wg.Wait() // ждем завершения всех горутин
 
-	timeBegin := time.Now().UnixMilli()
-	//запускаем апдейты кошельков
-	var wgUpdate sync.WaitGroup // создаем WaitGroup
-	for i := 0; i < len(walletsId); i++ {
-		wgUpdate.Add(1)  // добавляем горутину в WaitGroup
-		go func(i int) { // запускаем горутину
-			defer wgUpdate.Done() // отмечаем горутину как завершенную при выходе из нее
-			err := s.UpdateBalanceForBatch(walletsId[i], currentsBalance[i]+updateBalance[i])
-			if err != nil {
-				log.Println("Ошибка обновления баланса wallet id ", walletsId[i], ", error: ", err)
-				return
-			}
-		}(i)
-		wgUpdate.Wait() // ждем завершения всех горутин
+	err := s.UpdateBalanceForBatch(walletsId, updateBalance)
+	if err != nil {
+		return err
 	}
-	timeEnd := time.Now().UnixMilli()
-	countTime := 1000 / float32(timeEnd-timeBegin)
-	benchmark := countTime * float32(len(walletsId))
-	fmt.Println("benchmark UpdateBalanceForBatch: ", benchmark, " tps")
 
 	return nil
 }

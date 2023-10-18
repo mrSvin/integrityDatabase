@@ -60,6 +60,37 @@ func (db *Database) ReadWallet(walletId string) (*Wallet, error) {
 	return &wallet, nil
 }
 
+func (db *Database) ReadBatchWallets(walletIds []string) ([]*Wallet, error) {
+	var wallets []*Wallet
+
+	// Создаем фильтр для поиска документов с id из массива walletIds
+	filter := bson.M{"id": bson.M{"$in": walletIds}}
+
+	// Используем метод Find для поиска документов
+	cursor, err := db.Collection.Find(context.Background(), filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	// Итерируемся по результатам поиска и декодируем каждый документ в структуру Wallet
+	for cursor.Next(context.Background()) {
+		var wallet Wallet
+		err := cursor.Decode(&wallet)
+		if err != nil {
+			return nil, err
+		}
+		wallets = append(wallets, &wallet)
+	}
+
+	// Проверяем наличие ошибок после итерации по результатам поиска
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return wallets, nil
+}
+
 func (db *Database) UpdateBalanceWallet(walletId string, newBalance int, timeUpdate int64, hash string) error {
 	filter := bson.M{"id": walletId}
 	update := bson.M{"$set": bson.M{"balance": newBalance, "timeOperation": timeUpdate, "hash": hash}}

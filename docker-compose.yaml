@@ -11,18 +11,6 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=password
 
-  mongodb2:
-    image: mongo
-    container_name: mongodb2
-    restart: always
-    ports:
-      - "27018:27017"
-    volumes:
-      - ./data/mongodb2:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=password
-
   zookeeper:
     image: bitnami/zookeeper
     ports:

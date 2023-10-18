@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+var uriMongo = "mongodb://localhost:27017"
 var countWallets = 100 //for batch test
 
 func Test_Service(t *testing.T) {
@@ -104,11 +105,13 @@ func Test_ServiceBatch(t *testing.T) {
 	timeBegin := time.Now().UnixMilli()
 	srv.TransferBatch(walletSender, walletRecipient, amount)
 	timeEnd := time.Now().UnixMilli()
-	fmt.Println("benchmark: ", timeEnd-timeBegin)
+	countTime := 1000 / float32(timeEnd-timeBegin)
+	benchmark := countTime * float32(countWallets)
+	fmt.Println("benchmark: ", benchmark, " tps")
 }
 
 func clearDb() {
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uriMongo))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,6 +131,7 @@ func clearDb() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("база очищена")
 }
 
 func generateRandomTransfer() ([]string, []string, []int) {
@@ -135,7 +139,7 @@ func generateRandomTransfer() ([]string, []string, []int) {
 	var walletRecipient []string
 	var amount []int
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < countWallets; i++ {
 		walletSender = append(walletSender, strconv.Itoa(rand.Intn(countWallets)+1))
 		walletRecipient = append(walletRecipient, strconv.Itoa(rand.Intn(countWallets)+1))
 		amount = append(amount, rand.Intn(40)+10)

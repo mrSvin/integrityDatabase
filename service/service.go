@@ -212,6 +212,7 @@ func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientA
 	}
 	wg.Wait() // ждем завершения всех горутин
 
+	timeBegin := time.Now().UnixMilli()
 	//запускаем апдейты кошельков
 	var wgUpdate sync.WaitGroup // создаем WaitGroup
 	for i := 0; i < len(walletsId); i++ {
@@ -226,6 +227,10 @@ func (s *service) TransferBatch(walletIdSenderArray []string, walletIdRecipientA
 		}(i)
 		wgUpdate.Wait() // ждем завершения всех горутин
 	}
+	timeEnd := time.Now().UnixMilli()
+	countTime := 1000 / float32(timeEnd-timeBegin)
+	benchmark := countTime * float32(len(walletsId))
+	fmt.Println("benchmark UpdateBalanceForBatch: ", benchmark, " tps")
 
 	return nil
 }
